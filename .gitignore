@@ -1,0 +1,13 @@
+# The source brief is deliberately not published. It is the project's own
+# document, this repository is public, and a file committed here is permanent and
+# indexable. Drop this line and commit it if you want the brief in the repo.
+Pipeline_Leak_Detection_Overview*.docx
+~$*.docx
+
+# Screenshot/crop scratch from the visual-QA loop
+__*
+
+# OS cruft
+Thumbs.db
+desktop.ini
+.DS_Store

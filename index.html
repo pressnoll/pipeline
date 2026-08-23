@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pipeline Integrity Monitor — Segment WB-04</title>
+<meta name="description" content="Operator console for the IoT edge-AI water pipeline leak detection system." />
+<link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body data-palette="#2a78d6,#eb6834,#1baf7a">
+
+<!-- ───────────────────────── icon sprite ───────────────────────── -->
+<svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
+  <symbol id="i-good" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 8.3l2.1 2.1L11 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 1.8l6.2 11.4H1.8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6v3.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="11.3" r=".95" fill="currentColor"/></symbol>
+  <symbol id="i-crit" viewBox="0 0 16 16"><path d="M5.4 1.6h5.2l3.8 3.8v5.2l-3.8 3.8H5.4L1.6 10.6V5.4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 4.7v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="11.1" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 16 16"><path d="M2.2 6.1a8.4 8.4 0 0111.6 0M4.4 8.5a5.3 5.3 0 017.2 0M6.5 10.9a2.3 2.3 0 013 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="13.2" r="1.05" fill="currentColor"/></symbol>
+  <symbol id="i-gps" viewBox="0 0 16 16"><path d="M8 14.6s4.9-4.5 4.9-8A4.9 4.9 0 003.1 6.6c0 3.5 4.9 8 4.9 8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="6.5" r="1.75" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 16 16"><rect x="4.3" y="4.3" width="7.4" height="7.4" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.4 1.9v2M9.6 1.9v2M6.4 12.1v2M9.6 12.1v2M1.9 6.4h2M1.9 9.6h2M12.1 6.4h2M12.1 9.6h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 16 16"><path d="M1.4 8c1.1 0 1.1-4.4 2.2-4.4S4.7 12.4 5.8 12.4 6.9 3.6 8 3.6s1.1 8.8 2.2 8.8S11.3 3.6 12.4 3.6s1.1 4.4 2.2 4.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 16 16"><path d="M8 1.6s4.3 5 4.3 7.9A4.3 4.3 0 013.7 9.5C3.7 6.6 8 1.6 8 1.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-thermo" viewBox="0 0 16 16"><path d="M9.6 8.9V3.4a1.6 1.6 0 10-3.2 0v5.5a3.1 3.1 0 103.2 0z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="11.6" r="1.15" fill="currentColor"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 16 16"><path d="M2.1 11.6a6.6 6.6 0 1111.8 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 11.2L11 6.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="11.5" r="1.1" fill="currentColor"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.4V8l2.6 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.3v1.8M8 12.9v1.8M1.3 8h1.8M12.9 8h1.8M3.3 3.3l1.3 1.3M11.4 11.4l1.3 1.3M12.7 3.3l-1.3 1.3M4.6 11.4l-1.3 1.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13.2 10.3A5.8 5.8 0 015.7 2.8a6.2 6.2 0 107.5 7.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+</svg>
+
+<!-- ───────────────────────── masthead ───────────────────────── -->
+<header class="masthead">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"/>
+      <circle cx="16" cy="16" r="8.4" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/>
+      <circle cx="16" cy="16" r="3.4" fill="currentColor"/>
+      <path d="M16 0.6v5.4M16 26v5.4M0.6 16h5.4M26 16h5.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    <div class="brand-text">
+      <div class="brand-title">Pipeline Integrity Monitor</div>
+      <div class="brand-sub">Waterboard trunk main · Segment <strong>WB-04</strong> · 3-node edge array</div>
+    </div>
+  </div>
+
+  <div class="masthead-right">
+    <div class="link-state" id="link-state">
+      <span class="beacon" data-state="good"></span>
+      <div class="link-copy">
+        <span class="micro">Cloud uplink</span>
+        <span class="link-value" id="link-detail">ThingSpeak · 3/3 nodes</span>
+      </div>
+    </div>
+    <div class="clock">
+      <svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg>
+      <div class="link-copy">
+        <span class="micro">Local · WAT</span>
+        <span class="link-value num" id="clock-local">—</span>
+      </div>
+    </div>
+    <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch colour theme">
+      <svg class="ico" aria-hidden="true"><use href="#i-sun" id="theme-icon"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ───────────────────────── filter row ───────────────────────── -->
+<div class="filterbar" role="group" aria-label="Dashboard filters">
+  <div class="fgroup">
+    <span class="micro">Window</span>
+    <div class="segmented" id="range-picker" role="radiogroup" aria-label="Time window">
+      <button type="button" role="radio" data-range="10m" aria-checked="true" class="is-on">10 m</button>
+      <button type="button" role="radio" data-range="1h" aria-checked="false">1 h</button>
+      <button type="button" role="radio" data-range="6h" aria-checked="false">6 h</button>
+      <button type="button" role="radio" data-range="24h" aria-checked="false">24 h</button>
+    </div>
+  </div>
+
+  <div class="fgroup">
+    <span class="micro">Segment</span>
+    <select id="segment-picker" aria-label="Pipeline segment">
+      <option value="WB-04" selected>WB-04 · Ring Rd → Eleyele (1,240 m, DN150)</option>
+      <option value="WB-02" disabled>WB-02 · not commissioned</option>
+      <option value="WB-07" disabled>WB-07 · not commissioned</option>
+    </select>
+  </div>
+
+  <div class="fgroup">
+    <span class="micro">Nodes</span>
+    <div class="segmented" id="node-picker" role="group" aria-label="Node visibility">
+      <button type="button" data-node="A" aria-pressed="true" class="is-on"><i class="key" data-node-key="A"></i>A</button>
+      <button type="button" data-node="B" aria-pressed="true" class="is-on"><i class="key" data-node-key="B"></i>B</button>
+      <button type="button" data-node="C" aria-pressed="true" class="is-on"><i class="key" data-node-key="C"></i>C</button>
+    </div>
+  </div>
+
+  <div class="fgroup push">
+    <span class="micro">Source</span>
+    <span class="chip chip-mock" title="The production Firebase/ThingSpeak feed is not connected yet. Readings below come from the hydraulic simulator in js/telemetry.js.">
+      <span class="beacon" data-state="sim"></span>Simulated feed
+    </span>
+  </div>
+
+  <div class="fgroup">
+    <span class="micro">Scenario</span>
+    <div class="segmented" id="scenario-picker" role="radiogroup" aria-label="Simulated scenario">
+      <button type="button" role="radio" data-scenario="auto" aria-checked="true" class="is-on">Auto</button>
+      <button type="button" role="radio" data-scenario="normal" aria-checked="false">Normal</button>
+      <button type="button" role="radio" data-scenario="minor" aria-checked="false">Minor</button>
+      <button type="button" role="radio" data-scenario="major" aria-checked="false">Major</button>
+    </div>
+  </div>
+</div>
+
+<main class="sheet">
+
+  <!-- ───────────────────── status banner ───────────────────── -->
+  <section class="banner" id="banner" data-state="good" aria-live="polite">
+    <div class="banner-state">
+      <span class="state-chip" id="state-chip">
+        <svg class="ico" aria-hidden="true"><use href="#i-good" id="state-icon"/></svg>
+        <span id="state-label">Normal</span>
+      </span>
+      <p class="banner-line" id="banner-line">Hydraulic profile nominal across all three nodes.</p>
+      <div class="banner-meta">
+        <span>Classifier agreement <strong class="num" id="banner-vote">3/3 windows</strong></span>
+        <span class="sep"></span>
+        <span>Since <strong class="num" id="banner-since">—</strong></span>
+        <span class="sep"></span>
+        <span>Detection latency <strong class="num" id="banner-latency">—</strong></span>
+      </div>
+    </div>
+
+    <div class="banner-hero">
+      <span class="micro">Estimated loss rate</span>
+      <div class="hero-row">
+        <span class="hero" id="hero-loss">0</span>
+        <span class="hero-unit">L/min</span>
+      </div>
+      <div class="hero-sub" id="hero-sub">0.0 % of inlet throughput · 0.00 m³ lost today</div>
+    </div>
+
+    <div class="banner-loc">
+      <span class="micro">Localisation</span>
+      <div class="loc-grid">
+        <div><span class="micro">Offset from Node A</span><span class="num loc-val" id="loc-offset">—</span></div>
+        <div><span class="micro">Sub-segment</span><span class="num loc-val" id="loc-seg">—</span></div>
+        <div class="loc-gps"><svg class="ico" aria-hidden="true"><use href="#i-gps"/></svg><span class="num" id="loc-gps">—</span></div>
+      </div>
+      <button class="btn" id="ack-btn" type="button" disabled>Acknowledge</button>
+    </div>
+  </section>
+
+  <!-- ───────────────────── KPI strip ───────────────────── -->
+  <section class="kpis" aria-label="Key metrics">
+    <article class="tile" id="kpi-throughput"></article>
+    <article class="tile" id="kpi-nrw"></article>
+    <article class="tile" id="kpi-pressure"></article>
+    <article class="tile" id="kpi-lost"></article>
+    <article class="tile" id="kpi-latency"></article>
+    <article class="tile" id="kpi-uptime"></article>
+  </section>
+
+  <!-- ───────────────────── main grid ───────────────────── -->
+  <div class="grid">
+
+    <section class="panel span-8" id="panel-schematic">
+      <header class="panel-head">
+        <h2>Segment hydraulics</h2>
+        <div class="panel-meta">
+          <span class="legend-inline" id="schematic-legend"></span>
+          <span class="micro">Hydraulic grade line · 1,240 m · DN150</span>
+        </div>
+      </header>
+      <div class="panel-body">
+        <div class="plot" id="schematic" role="img" aria-label="Pipeline schematic with hydraulic grade line, node positions and leak localisation"></div>
+      </div>
+    </section>
+
+    <section class="panel span-4" id="panel-ai">
+      <header class="panel-head">
+        <h2>Edge classifier</h2>
+        <div class="panel-meta"><svg class="ico" aria-hidden="true"><use href="#i-cpu"/></svg><span class="micro">KNN · k=5 · on-device</span></div>
+      </header>
+      <div class="panel-body" id="ai-body"></div>
+    </section>
+
+    <section class="panel span-6" id="panel-pressure">
+      <header class="panel-head">
+        <h2>Nodal pressure</h2>
+        <div class="panel-meta">
+          <span class="legend-inline" id="legend-pressure"></span>
+          <button class="pill" type="button" data-toggle="pressure" aria-pressed="false">Table</button>
+        </div>
+      </header>
+      <div class="panel-body">
+        <div class="plot" id="chart-pressure"></div>
+        <div class="tableview" id="table-pressure" hidden></div>
+      </div>
+    </section>
+
+    <section class="panel span-6" id="panel-flow">
+      <header class="panel-head">
+        <h2>Flow balance &amp; loss</h2>
+        <div class="panel-meta">
+          <span class="legend-inline" id="legend-flow"></span>
+          <button class="pill" type="button" data-toggle="flow" aria-pressed="false">Table</button>
+        </div>
+      </header>
+      <div class="panel-body">
+        <div class="plot" id="chart-flow"></div>
+        <div class="tableview" id="table-flow" hidden></div>
+      </div>
+    </section>
+
+    <section class="panel span-4" id="panel-vib">
+      <header class="panel-head">
+        <h2>Vibration intensity</h2>
+        <div class="panel-meta">
+          <button class="pill" type="button" data-toggle="vibration" aria-pressed="false">Table</button>
+        </div>
+      </header>
+      <div class="panel-body">
+        <div class="plot" id="chart-vibration"></div>
+        <div class="tableview" id="table-vibration" hidden></div>
+      </div>
+    </section>
+
+    <section class="panel span-5" id="panel-ribbon">
+      <header class="panel-head">
+        <h2>Classification history</h2>
+        <div class="panel-meta">
+          <span class="legend-inline" id="legend-ribbon"></span>
+          <button class="pill" type="button" data-toggle="ribbon" aria-pressed="false">Table</button>
+        </div>
+      </header>
+      <div class="panel-body">
+        <div class="plot" id="chart-ribbon"></div>
+        <div class="tableview" id="table-ribbon" hidden></div>
+      </div>
+    </section>
+
+    <section class="panel span-3" id="panel-thermal">
+      <header class="panel-head">
+        <h2>Thermal compensation</h2>
+        <div class="panel-meta"><svg class="ico" aria-hidden="true"><use href="#i-thermo"/></svg></div>
+      </header>
+      <div class="panel-body" id="thermal-body"></div>
+    </section>
+
+    <section class="panel span-7" id="panel-nodes">
+      <header class="panel-head">
+        <h2>Node telemetry</h2>
+        <div class="panel-meta"><span class="micro">1 Hz sampling · last packet age in seconds</span></div>
+      </header>
+      <div class="panel-body no-pad" id="nodes-body"></div>
+    </section>
+
+    <section class="panel span-5" id="panel-events">
+      <header class="panel-head">
+        <h2>Event log</h2>
+        <div class="panel-meta"><span class="micro" id="events-meta"></span></div>
+      </header>
+      <div class="panel-body no-pad" id="events-body"></div>
+    </section>
+
+  </div>
+
+  <footer class="sheet-foot">
+    <div>
+      <span class="micro">Provenance</span>
+      <p>No production database is attached. Every reading on this page is generated by the hydraulic + KNN simulator in <code>js/telemetry.js</code>, which reproduces the signatures described in the project brief: inflow rise, outflow deficit, downstream pressure sag, jet-induced vibration decaying with distance, and joint moisture. Replace that module with the Firebase/ThingSpeak reader when the schema lands — the render layer holds no domain logic and consumes the same frame shape, documented in <code>README.md</code>.</p>
+    </div>
+    <div>
+      <span class="micro">Model card</span>
+      <p>KNN, k=5, 5 engineered features over a 10 s window, 4 agreeing windows before an alert is raised. 4,820 labelled samples — 3,600 EPANET scenarios, 980 lab rig, 240 field. Hold-out accuracy 96.4 %, macro-F1 0.951. Quantised to 41 KB, resident in ESP32 flash; inference is local, so alerting survives an uplink outage.</p>
+    </div>
+    <div>
+      <span class="micro">Assumptions</span>
+      <p>Bulk tariff ₦285 / m³ for loss costing. Hazen-Williams C = 110 for headloss. Localisation uncertainty is the flow-balance residual propagated through the pressure gradient, reported at ±1σ. Moisture confirmation only applies within 90 m of an instrumented joint.</p>
+    </div>
+  </footer>
+</main>
+
+<div class="tooltip" id="tooltip" role="status" aria-live="off" hidden></div>
+
+<script src="js/telemetry.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

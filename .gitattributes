@@ -1,0 +1,6 @@
+# Normalize text to LF in the repository regardless of the contributor's
+# core.autocrlf setting, so a Windows checkout never produces a whole-file diff.
+* text=auto eol=lf
+
+*.png binary
+*.docx binary
