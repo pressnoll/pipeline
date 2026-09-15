@@ -16,8 +16,8 @@
      on its own.                                                            */
 
   const STATE = {
-    normal:  { key: 'good',    name: 'Normal',      icon: '#i-good', color: 'var(--good)',    ink: 'var(--good-ink)' },
-    watch:   { key: 'warn',    name: 'Under review', icon: '#i-warn', color: 'var(--warn)',    ink: 'var(--warn-ink)' },
+    normal:  { key: 'good',    name: 'Flow is normal', icon: '#i-good', color: 'var(--good)',    ink: 'var(--good-ink)' },
+    watch:   { key: 'warn',    name: 'Checking a change', icon: '#i-warn', color: 'var(--warn)',    ink: 'var(--warn-ink)' },
     minor:   { key: 'serious', name: 'Minor leak',  icon: '#i-warn', color: 'var(--serious)', ink: 'var(--serious-ink)' },
     major:   { key: 'crit',    name: 'Major leak',  icon: '#i-crit', color: 'var(--crit)',    ink: 'var(--crit-ink)' }
   };
@@ -148,23 +148,23 @@
 
   const TILES = [
     {
-      id: 'kpi-throughput', label: 'Inlet throughput', icon: '#i-gauge', unit: 'L/min',
+      id: 'kpi-throughput', label: 'Water entering', icon: '#i-gauge', unit: 'L/min',
       value: f => f0(f.sys.qIn), spark: s => s.map(d => d.qA), color: 'var(--s1)',
       delta: function (f, s) {
         if (s.length < 8) return null;
         const then = s[0].qA, now = s[s.length - 1].qA;
-        return { text: (now >= then ? '+' : '') + f1(now - then) + ' L/min vs window open', dir: 'flat' };
+        return { text: (now >= then ? '+' : '') + f1(now - then) + ' L/min in this window', dir: 'flat' };
       }
     },
     {
-      id: 'kpi-nrw', label: 'Non-revenue water', icon: '#i-drop', unit: '% of inlet',
+      id: 'kpi-nrw', label: 'Water escaping', icon: '#i-drop', unit: '% of inlet',
       value: f => f1(f.sys.lossPct), spark: s => s.map(d => d.lossRate), color: 'var(--crit)',
       delta: f => ({ text: f0(f.sys.lossRate) + ' L/min escaping', dir: f.sys.lossPct > 2 ? 'bad' : 'good' })
     },
     {
-      id: 'kpi-pressure', label: 'Minimum nodal pressure', icon: '#i-gauge', unit: 'bar',
+      id: 'kpi-pressure', label: 'Lowest pressure', icon: '#i-gauge', unit: 'bar',
       value: f => f2(f.sys.pMin), spark: s => s.map(d => Math.min(d.pA, d.pB, d.pC)), color: 'var(--s1)',
-      delta: f => ({ text: f2(f.sys.gradient) + ' bar/km gradient', dir: f.sys.pMin < 1.6 ? 'bad' : 'flat' })
+      delta: f => ({ text: f2(f.sys.gradient) + ' bar/km across the pipe', dir: f.sys.pMin < 1.6 ? 'bad' : 'flat' })
     },
     {
       id: 'kpi-lost', label: 'Water lost today', icon: '#i-drop', unit: 'm³',
@@ -181,17 +181,17 @@
         });
       },
       color: 'var(--crit)',
-      delta: f => ({ text: naira(f.sys.cost) + ' at ₦285/m³', dir: 'bad' })
+      delta: f => ({ text: 'Estimated cost ' + naira(f.sys.cost), dir: 'flat' })
     },
     {
-      id: 'kpi-latency', label: 'Mean detection latency', icon: '#i-clock', unit: 's',
+      id: 'kpi-latency', label: 'Time to detect', icon: '#i-clock', unit: 's',
       value: f => f1(f.sys.detLatency), spark: null,
-      delta: f => ({ text: f.sys.suppressed + ' transients rejected', dir: 'good' })
+      delta: f => ({ text: f.sys.suppressed + ' brief changes ignored', dir: 'good' })
     },
     {
-      id: 'kpi-uptime', label: 'Array availability', icon: '#i-wifi', unit: '%',
+      id: 'kpi-uptime', label: 'Sensor availability', icon: '#i-wifi', unit: '%',
       value: () => f1(Telemetry.nodes.reduce((a, n) => a + n.uptime, 0) / 3), spark: null,
-      delta: f => ({ text: f.sys.nodesOnline + '/3 nodes reporting · ' + f0(f.sys.uplinkMs) + ' ms RTT', dir: 'good' })
+      delta: f => ({ text: f.sys.nodesOnline + '/3 simulated sensors reporting', dir: 'good' })
     }
   ];
 
@@ -230,33 +230,19 @@
     const push = (t, bold) => parts.push(bold ? { b: t } : t);
 
     if (sys.cls === 'normal' && !sys.pending) {
-      /* The weakest of the three ballots is the honest figure to quote. Asserting
-         5/5 while the classifier panel shows a node at 3/5 would let the banner
-         contradict the panel two rows below it. */
-      const weakest = NODE_LIST.map(id => frame.nodes[id]).reduce((a, b) => (b.conf < a.conf ? b : a));
-      const kk = Telemetry.model.k;
-      push('Hydraulic profile nominal. Flow balance closes to within ');
-      push(f1(Math.abs(sys.imbalAB)) + ' L/min', 1);
-      push(' on A–B and ');
-      push(f1(Math.abs(sys.imbalBC)) + ' L/min', 1);
-      push(' on B–C — inside sensor tolerance. All three nodes classify Normal, the least certain of them at ');
-      push(Math.round(weakest.conf * kk) + '/' + kk + ' neighbour agreement', 1);
-      push('.');
+      push('Water is moving normally through the pipeline. All three sensors agree, and the amount entering matches the amount leaving.');
     } else if (sys.pending) {
-      push('Anomaly detected, alert withheld. ');
-      push(sys.runN + ' of ' + sys.confirmWindows + ' inference windows', 1);
-      push(' agree so far — the confirmation rule rejects momentary transients before an operator is paged.');
+      push('The sensors noticed a change. Checking whether it lasts: ');
+      push(sys.runN + ' of ' + sys.confirmWindows + ' readings', 1);
+      push(' agree so far. A brief disturbance will be ignored.');
     } else {
       const worst = NODE_LIST.map(id => frame.nodes[id]).sort((a, b) => b.vib - a.vib)[0];
-      push(STATE[sys.cls].name + ' confirmed in sub-segment ');
+      push('A leak is confirmed between sensors ');
       push(sys.subseg || '—', 1);
-      push('. Outflow trails inflow by ');
-      push(f0(sys.lossRate) + ' L/min', 1);
-      push('; vibration at Node ' + worst.id + ' is up to ');
-      push(f0(worst.vib) + ' mg', 1);
-      push(worst.moist > 25
-        ? '; the joint moisture sensor at Node ' + worst.id + ' reads ' + f0(worst.moist) + ' %, physically confirming water outside the pipe.'
-        : '; no instrumented joint lies within 90 m of the estimate, so localisation rests on the flow balance and the pressure gradient.');
+      push('. About ');
+      push(f0(sys.lossRate) + ' litres per minute', 1);
+      push(' may be escaping. The flow and pressure readings point to this area');
+      push(worst.moist > 25 ? ', and a nearby moisture sensor also detected water.' : '.');
     }
     return { st: st, parts: parts };
   }
@@ -285,11 +271,13 @@
 
     document.getElementById('hero-loss').textContent = f0(sys.lossRate);
     document.getElementById('hero-sub').textContent =
-      pct(sys.lossPct) + ' of inlet throughput · ' + f1(sys.cumLoss) + ' m³ lost today · ' + naira(sys.cost);
+      pct(sys.lossPct) + ' of water entering now · ' + f1(sys.cumLoss) +
+      (sys.cls === 'normal' && !sys.pending ? ' m³ estimated lost earlier today' : ' m³ estimated lost so far today') +
+      ' · ' + naira(sys.cost) + ' estimated cost';
 
-    document.getElementById('loc-offset').textContent = sys.pos != null ? f0(sys.pos) + ' m ±' + f0(sys.sigma) : 'not resolved';
-    document.getElementById('loc-seg').textContent = sys.subseg || 'balanced';
-    document.getElementById('loc-gps').textContent = sys.pos != null ? gps(sys.gps) : 'awaiting a resolved position';
+    document.getElementById('loc-offset').textContent = sys.pos != null ? f0(sys.pos) + ' m ±' + f0(sys.sigma) : 'No leak located';
+    document.getElementById('loc-seg').textContent = sys.subseg || 'None';
+    document.getElementById('loc-gps').textContent = sys.pos != null ? gps(sys.gps) : 'Location appears when a leak is detected';
 
     const active = Telemetry.alerts().some(a => a.state === 'active');
     const ack = document.getElementById('ack-btn');
@@ -300,7 +288,7 @@
     /* masthead uplink pill */
     const beacon = document.querySelector('#link-state .beacon');
     beacon.dataset.state = sys.nodesOnline === 3 ? 'good' : 'warn';
-    document.getElementById('link-detail').textContent = 'ThingSpeak · ' + sys.nodesOnline + '/3 nodes · ' + f0(sys.uplinkMs) + ' ms';
+    document.getElementById('link-detail').textContent = sys.nodesOnline + '/3 simulated nodes reporting';
   }
 
   /* ── edge classifier panel ─────────────────────────────────────────────── */

@@ -4,10 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Pipeline Integrity Monitor — Segment WB-04</title>
-<meta name="description" content="Operator console for the IoT edge-AI water pipeline leak detection system." />
+<meta name="description" content="A clear overview of pipeline flow, sensor readings, and possible leaks on segment WB-04." />
 <link rel="stylesheet" href="css/dashboard.css" />
 </head>
-<body data-palette="#2a78d6,#eb6834,#1baf7a">
+<body>
 
 <!-- ───────────────────────── icon sprite ───────────────────────── -->
 <svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
@@ -37,7 +37,7 @@
     </svg>
     <div class="brand-text">
       <div class="brand-title">Pipeline Integrity Monitor</div>
-      <div class="brand-sub">Waterboard trunk main · Segment <strong>WB-04</strong> · 3-node edge array</div>
+      <div class="brand-sub">Waterboard trunk main · Segment <strong>WB-04</strong> · 3 sensors</div>
     </div>
   </div>
 
@@ -45,8 +45,8 @@
     <div class="link-state" id="link-state">
       <span class="beacon" data-state="good"></span>
       <div class="link-copy">
-        <span class="micro">Cloud uplink</span>
-        <span class="link-value" id="link-detail">ThingSpeak · 3/3 nodes</span>
+        <span class="micro">Demo connection</span>
+        <span class="link-value" id="link-detail">3 simulated nodes reporting</span>
       </div>
     </div>
     <div class="clock">
@@ -95,7 +95,7 @@
   <div class="fgroup push">
     <span class="micro">Source</span>
     <span class="chip chip-mock" title="The production Firebase/ThingSpeak feed is not connected yet. Readings below come from the hydraulic simulator in js/telemetry.js.">
-      <span class="beacon" data-state="sim"></span>Simulated feed
+      <span class="beacon" data-state="sim"></span>Demo data
     </span>
   </div>
 
@@ -111,6 +111,20 @@
 </div>
 
 <main class="sheet">
+  <div class="page-intro">
+    <div>
+      <span class="eyebrow">WB-04 / PIPELINE OVERVIEW</span>
+      <h1>Follow the water.</h1>
+      <p>Follow the flow from Ring Road to Eleyele. See what changed, what the sensors found, and where attention is needed.</p>
+    </div>
+    <div class="intro-route" aria-label="Segment route">
+      <span class="route-dot"></span>
+      <div><strong>Ring Road</strong><small>INLET · NODE A</small></div>
+      <span class="route-line"></span>
+      <div><strong>Eleyele</strong><small>OUTLET · NODE C</small></div>
+      <span class="route-dot"></span>
+    </div>
+  </div>
 
   <!-- ───────────────────── status banner ───────────────────── -->
   <section class="banner" id="banner" data-state="good" aria-live="polite">
@@ -119,18 +133,18 @@
         <svg class="ico" aria-hidden="true"><use href="#i-good" id="state-icon"/></svg>
         <span id="state-label">Normal</span>
       </span>
-      <p class="banner-line" id="banner-line">Hydraulic profile nominal across all three nodes.</p>
+      <p class="banner-line" id="banner-line">Water is moving normally through the pipeline.</p>
       <div class="banner-meta">
-        <span>Classifier agreement <strong class="num" id="banner-vote">3/3 windows</strong></span>
+        <span>Readings checked <strong class="num" id="banner-vote">4/4 windows</strong></span>
         <span class="sep"></span>
-        <span>Since <strong class="num" id="banner-since">—</strong></span>
+        <span>In this state for <strong class="num" id="banner-since">—</strong></span>
         <span class="sep"></span>
-        <span>Detection latency <strong class="num" id="banner-latency">—</strong></span>
+        <span>Typical detection time <strong class="num" id="banner-latency">—</strong></span>
       </div>
     </div>
 
     <div class="banner-hero">
-      <span class="micro">Estimated loss rate</span>
+      <span class="micro">Estimated water escaping</span>
       <div class="hero-row">
         <span class="hero" id="hero-loss">0</span>
         <span class="hero-unit">L/min</span>
@@ -139,15 +153,17 @@
     </div>
 
     <div class="banner-loc">
-      <span class="micro">Localisation</span>
+      <span class="micro">Possible leak location</span>
       <div class="loc-grid">
-        <div><span class="micro">Offset from Node A</span><span class="num loc-val" id="loc-offset">—</span></div>
-        <div><span class="micro">Sub-segment</span><span class="num loc-val" id="loc-seg">—</span></div>
+        <div><span class="micro">Distance from inlet</span><span class="num loc-val" id="loc-offset">—</span></div>
+        <div><span class="micro">Between sensors</span><span class="num loc-val" id="loc-seg">—</span></div>
         <div class="loc-gps"><svg class="ico" aria-hidden="true"><use href="#i-gps"/></svg><span class="num" id="loc-gps">—</span></div>
       </div>
       <button class="btn" id="ack-btn" type="button" disabled>Acknowledge</button>
     </div>
   </section>
+
+  <div class="section-intro metrics-intro"><span class="eyebrow">01 / AT A GLANCE</span><p>The numbers that describe this moment</p></div>
 
   <!-- ───────────────────── KPI strip ───────────────────── -->
   <section class="kpis" aria-label="Key metrics">
@@ -164,10 +180,10 @@
 
     <section class="panel span-8" id="panel-schematic">
       <header class="panel-head">
-        <h2>Segment hydraulics</h2>
+        <h2>Where the water is moving</h2>
         <div class="panel-meta">
           <span class="legend-inline" id="schematic-legend"></span>
-          <span class="micro">Hydraulic grade line · 1,240 m · DN150</span>
+          <span class="micro">Pressure along 1,240 m of pipe</span>
         </div>
       </header>
       <div class="panel-body">
@@ -177,15 +193,20 @@
 
     <section class="panel span-4" id="panel-ai">
       <header class="panel-head">
-        <h2>Edge classifier</h2>
+        <h2>How the alert is decided</h2>
         <div class="panel-meta"><svg class="ico" aria-hidden="true"><use href="#i-cpu"/></svg><span class="micro">KNN · k=5 · on-device</span></div>
       </header>
       <div class="panel-body" id="ai-body"></div>
     </section>
 
+    <div class="grid-break">
+      <div><span class="eyebrow">02 / SENSOR SIGNALS</span><h2>What the instruments see</h2></div>
+      <p>Pressure, flow, and vibration are read together to understand a change.</p>
+    </div>
+
     <section class="panel span-6" id="panel-pressure">
       <header class="panel-head">
-        <h2>Nodal pressure</h2>
+        <h2>Pressure at each sensor</h2>
         <div class="panel-meta">
           <span class="legend-inline" id="legend-pressure"></span>
           <button class="pill" type="button" data-toggle="pressure" aria-pressed="false">Table</button>
@@ -199,7 +220,7 @@
 
     <section class="panel span-6" id="panel-flow">
       <header class="panel-head">
-        <h2>Flow balance &amp; loss</h2>
+        <h2>Water in and water out</h2>
         <div class="panel-meta">
           <span class="legend-inline" id="legend-flow"></span>
           <button class="pill" type="button" data-toggle="flow" aria-pressed="false">Table</button>
@@ -213,7 +234,7 @@
 
     <section class="panel span-4" id="panel-vib">
       <header class="panel-head">
-        <h2>Vibration intensity</h2>
+        <h2>Pipe vibration</h2>
         <div class="panel-meta">
           <button class="pill" type="button" data-toggle="vibration" aria-pressed="false">Table</button>
         </div>
@@ -226,7 +247,7 @@
 
     <section class="panel span-5" id="panel-ribbon">
       <header class="panel-head">
-        <h2>Classification history</h2>
+        <h2>Recent sensor status</h2>
         <div class="panel-meta">
           <span class="legend-inline" id="legend-ribbon"></span>
           <button class="pill" type="button" data-toggle="ribbon" aria-pressed="false">Table</button>
@@ -240,15 +261,20 @@
 
     <section class="panel span-3" id="panel-thermal">
       <header class="panel-head">
-        <h2>Thermal compensation</h2>
+        <h2>Temperature correction</h2>
         <div class="panel-meta"><svg class="ico" aria-hidden="true"><use href="#i-thermo"/></svg></div>
       </header>
       <div class="panel-body" id="thermal-body"></div>
     </section>
 
+    <div class="grid-break details-break">
+      <div><span class="eyebrow">03 / DETAIL &amp; HISTORY</span><h2>Trace every reading</h2></div>
+      <p>The latest sensor values and the events behind the current status.</p>
+    </div>
+
     <section class="panel span-7" id="panel-nodes">
       <header class="panel-head">
-        <h2>Node telemetry</h2>
+        <h2>Latest sensor readings</h2>
         <div class="panel-meta"><span class="micro">1 Hz sampling · last packet age in seconds</span></div>
       </header>
       <div class="panel-body no-pad" id="nodes-body"></div>
@@ -256,7 +282,7 @@
 
     <section class="panel span-5" id="panel-events">
       <header class="panel-head">
-        <h2>Event log</h2>
+        <h2>Alerts and events</h2>
         <div class="panel-meta"><span class="micro" id="events-meta"></span></div>
       </header>
       <div class="panel-body no-pad" id="events-body"></div>
@@ -266,16 +292,16 @@
 
   <footer class="sheet-foot">
     <div>
-      <span class="micro">Provenance</span>
-      <p>No production database is attached. Every reading on this page is generated by the hydraulic + KNN simulator in <code>js/telemetry.js</code>, which reproduces the signatures described in the project brief: inflow rise, outflow deficit, downstream pressure sag, jet-induced vibration decaying with distance, and joint moisture. Replace that module with the Firebase/ThingSpeak reader when the schema lands — the render layer holds no domain logic and consumes the same frame shape, documented in <code>README.md</code>.</p>
+      <span class="micro">About this demo</span>
+      <p>All readings, past events, and daily totals on this page are simulated. The live pipeline data source has not been connected yet.</p>
     </div>
     <div>
-      <span class="micro">Model card</span>
-      <p>KNN, k=5, 5 engineered features over a 10 s window, 4 agreeing windows before an alert is raised. 4,820 labelled samples — 3,600 EPANET scenarios, 980 lab rig, 240 field. Hold-out accuracy 96.4 %, macro-F1 0.951. Quantised to 41 KB, resident in ESP32 flash; inference is local, so alerting survives an uplink outage.</p>
+      <span class="micro">How alerts work</span>
+      <p>The demo compares pressure, flow, vibration, and moisture. It waits for four agreeing readings before confirming a leak, so a brief disturbance does not become an alert.</p>
     </div>
     <div>
-      <span class="micro">Assumptions</span>
-      <p>Bulk tariff ₦285 / m³ for loss costing. Hazen-Williams C = 110 for headloss. Localisation uncertainty is the flow-balance residual propagated through the pressure gradient, reported at ±1σ. Moisture confirmation only applies within 90 m of an instrumented joint.</p>
+      <span class="micro">About the estimates</span>
+      <p>Loss cost uses ₦285 per cubic metre. Leak distance is an estimate with a margin of error; moisture only helps when a joint sensor is near the leak.</p>
     </div>
   </footer>
 </main>
