@@ -21,8 +21,8 @@ tools/verify-simulator.js  node tools/verify-simulator.js — asserts the scenar
 ## The database is not attached yet
 
 There is no Firebase or ThingSpeak connection. Every number on the page comes
-from `js/telemetry.js`, and the page says so — the filter bar carries a
-**Simulated feed** chip and the footer names the file.
+from `js/telemetry.js`. The classroom presentation should explain this aloud;
+the webpage does not label the simulated feed.
 
 What that module is *not* is a random-number generator wearing a telemetry
 costume. It runs a small hydraulic model of the segment and derives every
@@ -67,7 +67,7 @@ Keep this public surface:
 | `series(rangeKey, buckets)` | bucketed history for `'10m' \| '1h' \| '6h' \| '24h'` |
 | `alerts()` | alert records, newest first |
 | `segment`, `nodes`, `classes`, `ranges`, `model` | static metadata |
-| `setScenario(name)`, `acknowledge()` | `setScenario` is a demo affordance — drop it, and remove the Scenario picker from `index.html`, once real data arrives |
+| `setScenario(name)`, `acknowledge()` | `setScenario` is a simulation affordance — drop it, and remove the Scenarios disclosure from `index.html`, once real data arrives |
 
 ### The frame
 

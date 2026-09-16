@@ -191,7 +191,7 @@
     {
       id: 'kpi-uptime', label: 'Sensor availability', icon: '#i-wifi', unit: '%',
       value: () => f1(Telemetry.nodes.reduce((a, n) => a + n.uptime, 0) / 3), spark: null,
-      delta: f => ({ text: f.sys.nodesOnline + '/3 simulated sensors reporting', dir: 'good' })
+      delta: f => ({ text: f.sys.nodesOnline + '/3 nodes available', dir: 'good' })
     }
   ];
 
@@ -288,7 +288,7 @@
     /* masthead uplink pill */
     const beacon = document.querySelector('#link-state .beacon');
     beacon.dataset.state = sys.nodesOnline === 3 ? 'good' : 'warn';
-    document.getElementById('link-detail').textContent = sys.nodesOnline + '/3 simulated nodes reporting';
+    document.getElementById('link-detail').textContent = sys.nodesOnline + '/3 nodes available';
   }
 
   /* ── edge classifier panel ─────────────────────────────────────────────── */

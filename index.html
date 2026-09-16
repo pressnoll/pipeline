@@ -45,8 +45,8 @@
     <div class="link-state" id="link-state">
       <span class="beacon" data-state="good"></span>
       <div class="link-copy">
-        <span class="micro">Demo connection</span>
-        <span class="link-value" id="link-detail">3 simulated nodes reporting</span>
+        <span class="micro">Array status</span>
+        <span class="link-value" id="link-detail">3/3 nodes available</span>
       </div>
     </div>
     <div class="clock">
@@ -92,22 +92,15 @@
     </div>
   </div>
 
-  <div class="fgroup push">
-    <span class="micro">Source</span>
-    <span class="chip chip-mock" title="The production Firebase/ThingSpeak feed is not connected yet. Readings below come from the hydraulic simulator in js/telemetry.js.">
-      <span class="beacon" data-state="sim"></span>Demo data
-    </span>
-  </div>
-
-  <div class="fgroup">
-    <span class="micro">Scenario</span>
-    <div class="segmented" id="scenario-picker" role="radiogroup" aria-label="Simulated scenario">
+  <details class="scenario-controls">
+    <summary>Scenarios</summary>
+    <div class="segmented" id="scenario-picker" role="radiogroup" aria-label="Status scenario">
       <button type="button" role="radio" data-scenario="auto" aria-checked="true" class="is-on">Auto</button>
       <button type="button" role="radio" data-scenario="normal" aria-checked="false">Normal</button>
       <button type="button" role="radio" data-scenario="minor" aria-checked="false">Minor</button>
       <button type="button" role="radio" data-scenario="major" aria-checked="false">Major</button>
     </div>
-  </div>
+  </details>
 </div>
 
 <main class="sheet">
@@ -292,12 +285,12 @@
 
   <footer class="sheet-foot">
     <div>
-      <span class="micro">About this demo</span>
-      <p>All readings, past events, and daily totals on this page are simulated. The live pipeline data source has not been connected yet.</p>
+      <span class="micro">How to read this view</span>
+      <p>The three nodes compare water entering and leaving the pipeline. Changes in flow, pressure, and vibration help identify the area that needs attention.</p>
     </div>
     <div>
       <span class="micro">How alerts work</span>
-      <p>The demo compares pressure, flow, vibration, and moisture. It waits for four agreeing readings before confirming a leak, so a brief disturbance does not become an alert.</p>
+      <p>The classifier compares pressure, flow, vibration, and moisture. It waits for four agreeing readings before confirming a leak, so a brief disturbance does not become an alert.</p>
     </div>
     <div>
       <span class="micro">About the estimates</span>
