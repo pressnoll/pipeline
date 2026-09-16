@@ -43,6 +43,14 @@ Because the readings share one model, an operator cross-checking two panels
 finds them consistent. That is the property that would break first if the
 numbers were faked independently, and it is the reason the swap below is small.
 
+### Hardware-test calibration
+
+The flow scale follows the September rig output rather than the earlier design-
+flow assumption. The minor test targets `Q1=10.00`, `Q2=9.00`, and `Q3=8.95`
+L/min. This produces approximately 10.00% loss on segment A–B and 0.56% on B–C,
+matching the model output. An inlet outside the trained 5–15 L/min range, such
+as `Q1=0.50`, is marked `REVIEW_REQUIRED` and is not promoted to a leak.
+
 ### Determinism
 
 The noise comes from a seeded `mulberry32` PRNG, so equal elapsed time yields
@@ -95,6 +103,8 @@ Keep this public surface:
     lossRate, lossPct,              // L/min, % of inlet
     cumLoss, cost,                  // m³ today, ₦ at the bulk tariff
     qIn, qOut, imbalAB, imbalBC,    // L/min
+    lossABPct, lossBCPct,            // measured loss for each sub-segment
+    dataQuality, reviewReason,       // 'OK' or a review-required reason
     pos, sigma, subseg, gps,        // localisation: m from inlet, ±1σ, 'A–B'|'B–C', {lat,lon}
     gradient, pMin, temp,           // bar/km, bar, °C
     detLatency, suppressed,         // mean seconds to detect; transients rejected today

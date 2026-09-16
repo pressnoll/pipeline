@@ -8,7 +8,7 @@
    asserted here rather than in a browser. Every check below exists because it
    caught something:
 
-     · a 268 L/min burst classified as a *minor* leak, because the pressure
+     · a major burst classified as a *minor* leak, because the pressure
        deficit feature referenced the inlet meter — which rises with the leak,
        cancelling the very sag it was meant to measure;
      · a rejected valve-slam transient in the event log being rewritten in place
@@ -95,6 +95,26 @@ console.log('\nscenario classification');
       'pos=' + Math.round(f.sys.pos) + ' m ±' + Math.round(f.sys.sigma));
   }
 });
+
+console.log('\nhardware-model alignment');
+
+const rig = scenario('minor', 30);
+check('minor test stays near Q1=10.00, Q2=9.00, Q3=8.95 L/min',
+  Math.abs(rig.nodes.A.q - 10.00) < 0.04 &&
+  Math.abs(rig.nodes.B.q - 9.00) < 0.04 &&
+  Math.abs(rig.nodes.C.q - 8.95) < 0.04,
+  [rig.nodes.A.q, rig.nodes.B.q, rig.nodes.C.q].map(v => v.toFixed(2)).join('/'));
+check('minor test reports segment 1 near 10% and segment 2 near 0.56%',
+  Math.abs(rig.sys.lossABPct - 10) < 0.5 && Math.abs(rig.sys.lossBCPct - 0.56) < 0.15,
+  rig.sys.lossABPct.toFixed(2) + '% / ' + rig.sys.lossBCPct.toFixed(2) + '%');
+
+const review = scenario('review', 10);
+check('out-of-range inlet is held for review, not classified as a leak',
+  review.sys.dataQuality === 'REVIEW_REQUIRED' &&
+  review.sys.reviewReason === 'INLET_OUTSIDE_TRAINING_RANGE' &&
+  review.sys.cls === 'normal',
+  'Q=' + [review.nodes.A.q, review.nodes.B.q, review.nodes.C.q].map(v => v.toFixed(2)).join('/') +
+  ' quality=' + review.sys.dataQuality);
 
 console.log('\nalert lifecycle');
 

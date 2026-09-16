@@ -558,7 +558,7 @@ const Charts = (function () {
       const bt = el('text', { x: bx + 8, y: pipeY - 12.5, 'text-anchor': 'middle', style: 'font-size:10px;font-weight:750;fill:var(--surface)' });
       svg.appendChild(txt(bt, n.id));
       const q = el('text', { class: 'chiptext', x: i === 0 ? bx + 21 : i === 2 ? bx - 5 : bx + 21, y: pipeY - 11, 'text-anchor': i === 2 ? 'end' : 'start' });
-      svg.appendChild(txt(q, Math.round(n.q) + ' L/min'));
+      svg.appendChild(txt(q, n.q.toFixed(2) + ' L/min'));
 
       const dl = el('text', { class: 'chiplabel', x: x, y: H - 12, 'text-anchor': anchor });
       svg.appendChild(txt(dl, n.x + ' m'));

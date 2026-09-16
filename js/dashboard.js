@@ -18,6 +18,7 @@
   const STATE = {
     normal:  { key: 'good',    name: 'Flow is normal', icon: '#i-good', color: 'var(--good)',    ink: 'var(--good-ink)' },
     watch:   { key: 'warn',    name: 'Checking a change', icon: '#i-warn', color: 'var(--warn)',    ink: 'var(--warn-ink)' },
+    review:  { key: 'warn',    name: 'Review readings', icon: '#i-warn', color: 'var(--warn)', ink: 'var(--warn-ink)' },
     minor:   { key: 'serious', name: 'Minor leak',  icon: '#i-warn', color: 'var(--serious)', ink: 'var(--serious-ink)' },
     major:   { key: 'crit',    name: 'Major leak',  icon: '#i-crit', color: 'var(--crit)',    ink: 'var(--crit-ink)' }
   };
@@ -30,6 +31,7 @@
   const f0 = v => isFinite(v) ? Math.round(v).toLocaleString('en-GB') : '—';
   const f1 = v => isFinite(v) ? v.toFixed(1) : '—';
   const f2 = v => isFinite(v) ? v.toFixed(2) : '—';
+  const flow = v => isFinite(v) ? v.toFixed(2) : '—';
   const pct = v => isFinite(v) ? v.toFixed(1) + ' %' : '—';
   const naira = v => '₦' + Math.round(v).toLocaleString('en-GB');
   const gps = g => g ? g.lat.toFixed(5) + ' N, ' + g.lon.toFixed(5) + ' E' : '—';
@@ -149,7 +151,7 @@
   const TILES = [
     {
       id: 'kpi-throughput', label: 'Water entering', icon: '#i-gauge', unit: 'L/min',
-      value: f => f0(f.sys.qIn), spark: s => s.map(d => d.qA), color: 'var(--s1)',
+      value: f => flow(f.sys.qIn), spark: s => s.map(d => d.qA), color: 'var(--s1)',
       delta: function (f, s) {
         if (s.length < 8) return null;
         const then = s[0].qA, now = s[s.length - 1].qA;
@@ -159,7 +161,7 @@
     {
       id: 'kpi-nrw', label: 'Water escaping', icon: '#i-drop', unit: '% of inlet',
       value: f => f1(f.sys.lossPct), spark: s => s.map(d => d.lossRate), color: 'var(--crit)',
-      delta: f => ({ text: f0(f.sys.lossRate) + ' L/min escaping', dir: f.sys.lossPct > 2 ? 'bad' : 'good' })
+      delta: f => ({ text: flow(f.sys.lossRate) + ' L/min escaping', dir: f.sys.lossPct > 2 ? 'bad' : 'good' })
     },
     {
       id: 'kpi-pressure', label: 'Lowest pressure', icon: '#i-gauge', unit: 'bar',
@@ -229,7 +231,11 @@
     const parts = [];
     const push = (t, bold) => parts.push(bold ? { b: t } : t);
 
-    if (sys.cls === 'normal' && !sys.pending) {
+    if (sys.dataQuality !== 'OK') {
+      push('The flow readings need review. ');
+      push('Q1 is outside the model training range', 1);
+      push(', so this cycle is not being classified as a leak.');
+    } else if (sys.cls === 'normal' && !sys.pending) {
       push('Water is moving normally through the pipeline. All three sensors agree, and the amount entering matches the amount leaving.');
     } else if (sys.pending) {
       push('The sensors noticed a change. Checking whether it lasts: ');
@@ -240,7 +246,7 @@
       push('A leak is confirmed between sensors ');
       push(sys.subseg || '—', 1);
       push('. About ');
-      push(f0(sys.lossRate) + ' litres per minute', 1);
+      push(flow(sys.lossRate) + ' litres per minute', 1);
       push(' may be escaping. The flow and pressure readings point to this area');
       push(worst.moist > 25 ? ', and a nearby moisture sensor also detected water.' : '.');
     }
@@ -249,7 +255,9 @@
 
   function paintBanner(frame) {
     const sys = frame.sys;
-    const { st, parts } = sentence(frame);
+    const result = sentence(frame);
+    const st = sys.dataQuality !== 'OK' ? STATE.review : result.st;
+    const parts = result.parts;
     const banner = document.getElementById('banner');
     banner.dataset.state = st.key;
 
@@ -263,13 +271,15 @@
       else line.appendChild(h('b', null, p.b));
     });
 
-    document.getElementById('banner-vote').textContent = sys.pending
-      ? sys.runN + '/' + sys.confirmWindows + ' windows'
-      : sys.confirmWindows + '/' + sys.confirmWindows + ' windows';
-    document.getElementById('banner-since').textContent = dur(Date.now() - sys.since);
+    document.getElementById('banner-vote').textContent = sys.dataQuality !== 'OK'
+      ? 'review required'
+      : sys.pending
+        ? sys.runN + '/' + sys.confirmWindows + ' windows'
+        : sys.confirmWindows + '/' + sys.confirmWindows + ' windows';
+    document.getElementById('banner-since').textContent = dur(Date.now() - (sys.dataQuality !== 'OK' ? sys.qualitySince : sys.since));
     document.getElementById('banner-latency').textContent = f1(sys.detLatency) + ' s mean';
 
-    document.getElementById('hero-loss').textContent = f0(sys.lossRate);
+    document.getElementById('hero-loss').textContent = flow(sys.lossRate);
     document.getElementById('hero-sub').textContent =
       pct(sys.lossPct) + ' of water entering now · ' + f1(sys.cumLoss) +
       (sys.cls === 'normal' && !sys.pending ? ' m³ estimated lost earlier today' : ' m³ estimated lost so far today') +
@@ -289,6 +299,15 @@
     const beacon = document.querySelector('#link-state .beacon');
     beacon.dataset.state = sys.nodesOnline === 3 ? 'good' : 'warn';
     document.getElementById('link-detail').textContent = sys.nodesOnline + '/3 nodes available';
+
+    document.getElementById('flow-q1').textContent = 'Q1 ' + flow(frame.nodes.A.q) + ' L/min';
+    document.getElementById('flow-q2').textContent = 'Q2 ' + flow(frame.nodes.B.q) + ' L/min';
+    document.getElementById('flow-q3').textContent = 'Q3 ' + flow(frame.nodes.C.q) + ' L/min';
+    document.getElementById('flow-ab').textContent = 'A–B loss ' + f2(sys.lossABPct) + ' %';
+    document.getElementById('flow-bc').textContent = 'B–C loss ' + f2(sys.lossBCPct) + ' %';
+    const quality = document.getElementById('flow-quality');
+    quality.textContent = sys.dataQuality === 'OK' ? 'Data quality OK' : 'Review: ' + sys.reviewReason.replaceAll('_', ' ');
+    quality.dataset.state = sys.dataQuality === 'OK' ? 'ok' : 'review';
   }
 
   /* ── edge classifier panel ─────────────────────────────────────────────── */
@@ -473,7 +492,7 @@
       tr.append(
         c0, c1,
         h('td', null, f2(n.p) + ' bar'),
-        h('td', null, f0(n.q) + ' L/min'),
+        h('td', null, flow(n.q) + ' L/min'),
         h('td', null, f0(n.vib) + ' mg'),
         moist,
         h('td', null, f1(n.temp) + ' °C'),
@@ -511,7 +530,7 @@
         : st.name + ' · sub-segment ' + a.seg;
       main.appendChild(h('div', 'event-title', title));
       const bits = [];
-      if (a.rate) bits.push(f0(a.rate) + ' L/min');
+      if (a.rate) bits.push(flow(a.rate) + ' L/min');
       if (a.pos != null) bits.push(f0(a.pos) + ' m from Node A');
       if (a.latency) bits.push('detected in ' + f1(a.latency) + ' s');
       if (a.moist) bits.push('moisture confirmed');
@@ -569,8 +588,8 @@
     }
     if (view.tables.flow) {
       buildTable(document.getElementById('table-flow'),
-        ['Time', 'Inlet (L/min)', 'Outlet (L/min)', 'Deficit (L/min)'],
-        rows.map(d => [clockOf(d.t), f0(d.qA), f0(d.qC), f1(d.qA - d.qC)]));
+        ['Time', 'Q1 (L/min)', 'Q2 (L/min)', 'Q3 (L/min)', 'Q1−Q3 (L/min)'],
+        rows.map(d => [clockOf(d.t), flow(d.qA), flow(d.qB), flow(d.qC), flow(d.qA - d.qC)]));
     }
     if (view.tables.vibration) {
       buildTable(document.getElementById('table-vibration'),
@@ -624,11 +643,9 @@
         { key: 'qC', label: 'Outlet (Node C)', color: NODE_COLOR.C, badge: 'C', dash: '5 4' }
       ],
       band: { upper: 'qA', lower: 'qC', color: stateOf.color, label: 'Unaccounted flow' },
-      unit: 'L/min', unitShort: 'L/min', fmt: f0, height: 210, yPad: 0.2,
-      /* 70 L/min ≈ the smallest leak this array can localise. Holding the span
-         open to at least that keeps a balanced segment looking balanced, and lets
-         the gap that opens under a real leak be read against a stable scale. */
-      minSpan: 70,
+      unit: 'L/min', unitShort: 'L/min', fmt: flow, height: 210, yPad: 0.2,
+      /* Hold a stable minimum span around the calibrated 9–10 L/min rig range. */
+      minSpan: 0.75,
       ariaLabel: 'Inlet against outlet flow; the shaded gap is unaccounted water',
       tipNote: 'Shaded area = water entering but not leaving'
     });

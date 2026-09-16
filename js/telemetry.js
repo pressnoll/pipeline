@@ -35,7 +35,8 @@ const Telemetry = (function () {
     dn: 150,               // nominal bore, mm
     hazenC: 110,
     tariff: 285,           // ₦ per m³
-    qNominal: 1040,        // L/min at design demand
+    qNominal: 9.00,        // L/min — calibrated test-rig flow at Q2
+    qOutlet: 8.95,         // L/min — calibrated test-rig flow at Q3
     supply: 3.40           // bar at the inlet header
   };
 
@@ -47,8 +48,7 @@ const Telemetry = (function () {
 
   const CLASSES = ['normal', 'minor', 'major'];
 
-  /* Headloss coefficient, bar per metre at design flow.
-     Hazen-Williams over 1,240 m of DN150 at 1,040 L/min ≈ 12.3 m ≈ 1.21 bar. */
+  /* Effective headloss coefficient for the scaled test model. */
   const K_BAR_PER_M = 1.21 / SEG.length;
 
   /* BMP280 drifts with ambient temperature; the node subtracts this. */
@@ -84,20 +84,20 @@ const Telemetry = (function () {
   /* Historical events used to backfill 24 h so the long windows are not empty.
      Offsets are seconds before "now". */
   const HISTORY = [
-    { from: -66600, to: -64980, peak: 84,  pos: 402, ramp: 240, label: 'minor' },
-    { from: -15600, to: -13140, peak: 261, pos: 951, ramp: 300, label: 'major' }
+    { from: -66600, to: -64980, peak: 1.00, pos: 402, ramp: 240, label: 'minor' },
+    { from: -15600, to: -13140, peak: 2.50, pos: 951, ramp: 300, label: 'major' }
   ];
 
   /* Live auto-cycle: normal → minor → major → repaired → suppressed transient. */
   const CYCLE = 264;
-  const CYCLE_POS = [868, 402];
+  const CYCLE_POS = [402, 868];
 
   function autoLeak(cycleT, pos) {
     const ramp = (t, t0, t1) => clamp((t - t0) / (t1 - t0), 0, 1);
     let q = 0;
-    if (cycleT >= 58 && cycleT < 140)       q = 82 * ramp(cycleT, 58, 78);
-    else if (cycleT >= 140 && cycleT < 214) q = 82 + (268 - 82) * ramp(cycleT, 140, 162);
-    else if (cycleT >= 214 && cycleT < 242) q = 268 * (1 - ramp(cycleT, 214, 240));
+    if (cycleT >= 58 && cycleT < 140)       q = 1.00 * ramp(cycleT, 58, 78);
+    else if (cycleT >= 140 && cycleT < 214) q = 1.00 + (2.50 - 1.00) * ramp(cycleT, 140, 162);
+    else if (cycleT >= 214 && cycleT < 242) q = 2.50 * (1 - ramp(cycleT, 214, 240));
     // a 2 s mechanical transient — a valve slam, not a leak. Must be suppressed.
     const transient = cycleT >= 250 && cycleT < 252.5;
     return { q, pos, transient };
@@ -126,11 +126,11 @@ const Telemetry = (function () {
   function pressureAt(x, pIn, qUp, qDn, leakPos, leakQ) {
     const fUp = frictionFactor(qUp);
     const fDn = frictionFactor(qDn);
-    const hasLeak = leakQ > 1;
+    const hasLeak = leakQ > 0.01;
     if (!hasLeak) return pIn - K_BAR_PER_M * x * fUp;
     const upLen = Math.min(x, leakPos);
     const dnLen = Math.max(0, x - leakPos);
-    const sag = x >= leakPos ? 0.058 * Math.pow(leakQ / 100, 1.3) : 0;
+    const sag = x >= leakPos ? 0.058 * Math.pow(leakQ, 1.3) : 0;
     return pIn - K_BAR_PER_M * upLen * fUp - K_BAR_PER_M * dnLen * fDn - sag;
   }
 
@@ -140,16 +140,23 @@ const Telemetry = (function () {
   function buildSample(tsMs, leak, dtSec, prev) {
     const dFac = demandFactor(tsMs);
     const temp = 25.4 + 5.6 * Math.max(0, Math.sin((((tsMs / 3600000) % 24) - 7) / 24 * 2 * Math.PI)) + gauss() * 0.22;
-    const demand = SEG.qNominal * dFac * (1 + gauss() * 0.004);
+    const demand = SEG.qNominal * (1 + gauss() * 0.00005);
 
     const leakQ = leak.q;
     const leakPos = leak.pos;
-    const qA = demand + leakQ;
-    const qC = demand;
-    const qB = leakPos < NODES[1].x ? qC : qA;
+    let qA, qB, qC;
+    if (leak.invalid) {
+      /* Reproduces the hardware model's out-of-training-range test. */
+      qA = 0.50; qB = 8.00; qC = 10.00;
+    } else {
+      qC = SEG.qOutlet;
+      qB = demand;
+      qA = demand + leakQ;
+      if (leakQ > 0 && leakPos >= NODES[1].x) qB += leakQ;
+    }
 
     const pIn = SEG.supply + gauss() * 0.012 - (dFac - 1) * 0.18;
-    const blip = leak.transient ? 0.075 : 0;
+    const blip = leak.transient ? 0.12 : 0;
 
     const s = { t: tsMs, temp: temp, leakTrue: leakQ, leakPosTrue: leakPos };
 
@@ -169,19 +176,19 @@ const Telemetry = (function () {
          and their short-term repeatability once calibrated against each other
          is far tighter than their absolute error. That repeatability is what
          sets the detectable leak floor, so it is what is modelled here. */
-      s['q' + n.id] = qTrue * (1 + gauss() * 0.0013) + gauss() * 0.28;
+      s['q' + n.id] = qTrue * (1 + gauss() * 0.00005) + gauss() * 0.0003;
 
       /* MPU-6050: flow-borne baseline plus jet excitation decaying with range. */
       const base = 10.5 + 4.2 * frictionFactor(qTrue) + Math.abs(gauss()) * 1.6;
-      const jet = leakQ > 1 ? 52 * Math.pow(leakQ / 100, 0.8) * Math.exp(-Math.abs(n.x - leakPos) / 210) : 0;
-      s['v' + n.id] = base + jet + (leak.transient ? 34 + Math.abs(gauss()) * 8 : 0);
+      const jet = leakQ > 0.01 ? 52 * Math.pow(leakQ, 0.8) * Math.exp(-Math.abs(n.x - leakPos) / 210) : 0;
+      s['v' + n.id] = base + jet + (leak.transient ? 72 + Math.abs(gauss()) * 8 : 0);
 
       /* Capacitive moisture at the joint — only wets if the leak is close.
          The relaxation carries the *clean* state forward; sensor noise is added
          to the reading only. Feeding the noisy reading back would compound a
          strictly-positive term into an upward drift. */
-      const near = leakQ > 15 && Math.abs(n.x - leakPos) <= MOIST_RADIUS;
-      const target = near ? clamp(38 + 52 * (leakQ / 260), 0, 96) : 4.4 + i * 0.6;
+      const near = leakQ > 0.15 && Math.abs(n.x - leakPos) <= MOIST_RADIUS;
+      const target = near ? clamp(38 + 52 * (leakQ / 2.6), 0, 96) : 4.4 + i * 0.6;
       const tau = near ? 42 : 150;
       moistState[n.id] += (target - moistState[n.id]) * (1 - Math.exp(-dtSec / tau));
       s['m' + n.id] = Math.max(0, moistState[n.id] + gauss() * 0.45);
@@ -201,11 +208,9 @@ const Telemetry = (function () {
   /* Centroids are calibrated to what *this* array can actually observe, which is
      not the same as what a leak emits:
 
-     · pressure deficit — a 268 L/min leak on 1,240 m of DN150 costs about 9 %
-       of supply head at the outlet, and 84 L/min costs about 2.5 %. The textbook
-       figures this started from (16.5 % / 5.5 %) belong to a smaller-bore or
-       longer main and no leak this pipe can carry ever reached them.
-     · vibration — the jet peaks near 112 mg at 268 L/min, but decays with
+     · pressure deficit — the calibrated 2.50 L/min major-loss case costs about
+       9 % of the modelled supply head, while the 1.00 L/min test case is minor.
+     · vibration — the jet peaks near 112 mg in the major case, but decays with
        exp(-d/210) and the nearest of only three nodes is usually 200-400 m off,
        so a node reads about 52 mg, never the 118 mg emitted at the orifice.
      · dP/dt — a rate of change exists only while a leak is opening. Once flow
@@ -216,11 +221,11 @@ const Telemetry = (function () {
        positions wet nothing at all. Moisture must therefore be able to confirm
        a leak but never to veto one, so its scale is deliberately loose.
 
-     Before this calibration a confirmed 266 L/min burst classified as *minor*,
+     Before this calibration a confirmed major burst classified as *minor*,
      because the unreachable vibration and moisture centroids pulled it there. */
   const CENTROIDS = {
     normal: [0.000, 0.00, 12, 0.2, 5],
-    minor:  [0.025, 0.05, 30, 6.0, 18],
+    minor:  [0.025, 0.05, 30, 10.0, 18],
     major:  [0.090, 0.12, 55, 21.0, 34]
   };
   const FEAT_SCALE = [0.05, 0.18, 40, 6, 60];
@@ -245,7 +250,9 @@ const Telemetry = (function () {
     const dPdt = clamp((first['p' + id] - cur.s['p' + id]) / span, -1, 1);
 
     const vib = cur.s['v' + id];
-    const imbal = id === 'A' ? cur.imbalAB : id === 'B' ? Math.max(cur.imbalAB, cur.imbalBC) : cur.imbalBC;
+    /* The inlet node observes throughput, but cannot by itself identify a loss
+       downstream. Segment imbalance begins at the downstream node. */
+    const imbal = id === 'A' ? 0 : id === 'B' ? Math.max(cur.imbalAB, cur.imbalBC) : cur.imbalBC;
     const imbalPct = clamp(imbal / Math.max(cur.qA_meas, 1) * 100, -2, 40);
     const moist = cur.s['m' + id];
 
@@ -294,7 +301,7 @@ const Telemetry = (function () {
   function localise(cur) {
     const qA = cur.qA_meas, qB = cur.qB_meas, qC = cur.qC_meas;
     const abGap = qA - qB, bcGap = qB - qC;
-    const thresh = Math.max(9, cur.qA_meas * 0.012);
+    const thresh = Math.max(0.09, cur.qA_meas * 0.012);
 
     let seg, x0, x1, pUp, pDn, qUp, qDn;
     if (abGap > thresh && abGap >= bcGap) {
@@ -307,7 +314,7 @@ const Telemetry = (function () {
 
     const L = x1 - x0;
     const fUp = frictionFactor(qUp), fDn = frictionFactor(qDn);
-    const sag = 0.058 * Math.pow(Math.max(qUp - qDn, 1) / 100, 1.3);
+    const sag = 0.058 * Math.pow(Math.max(qUp - qDn, 0.01), 1.3);
     const denom = K_BAR_PER_M * (fUp - fDn);
     if (Math.abs(denom) < 1e-9) return { seg: seg, x: null, sigma: null };
 
@@ -337,10 +344,12 @@ const Telemetry = (function () {
     run: { cls: 'normal', n: 0 },     // consecutive agreeing inferences
     confirmed: 'normal',
     since: Date.now(),
+    quality: 'OK',
+    qualitySince: Date.now(),
     onsetAt: null,
     detLatencies: [16.4, 12.1, 21.6, 14.9],
     suppressed: 7,
-    cumLoss: 34.8,                    // m³ lost so far today (backfilled events)
+    cumLoss: 0.348,                   // m³ lost so far today (backfilled events)
     posEma: null,
     sigEma: null,
     lossEma: 0,
@@ -355,12 +364,25 @@ const Telemetry = (function () {
 
   function assemble(s, hist, dtSec, live) {
     const qA = s.qA, qB = s.qB, qC = s.qC;
+    const rqA = Math.round(qA * 100) / 100;
+    const rqB = Math.round(qB * 100) / 100;
+    const rqC = Math.round(qC * 100) / 100;
     const cur = {
       s: s,
       qA_meas: qA, qB_meas: qB, qC_meas: qC,
       imbalAB: qA - qB,
       imbalBC: qB - qC
     };
+    const dataQuality = qA < 5 || qA > 15
+      ? 'REVIEW_REQUIRED'
+      : (qA + 0.10 < qB || qB + 0.10 < qC ? 'REVIEW_REQUIRED' : 'OK');
+    const reviewReason = qA < 5 || qA > 15
+      ? 'INLET_OUTSIDE_TRAINING_RANGE'
+      : (qA + 0.10 < qB || qB + 0.10 < qC ? 'FLOW_ORDER_INVALID' : null);
+    if (live && dataQuality !== state.quality) {
+      state.quality = dataQuality;
+      state.qualitySince = s.t;
+    }
 
     const nodes = {};
     NODES.forEach(function (n) {
@@ -378,10 +400,21 @@ const Telemetry = (function () {
       };
     });
 
+    if (dataQuality !== 'OK') {
+      Object.keys(nodes).forEach(function (id) {
+        nodes[id].cls = 'normal';
+        nodes[id].conf = 1;
+        nodes[id].votes = [5, 0, 0];
+      });
+    }
+
     /* System verdict = worst node verdict, then the confirmation window. */
-    const worst = ['A', 'B', 'C'].reduce(function (acc, id) {
+    let worst = ['A', 'B', 'C'].reduce(function (acc, id) {
       return CLASSES.indexOf(nodes[id].cls) > CLASSES.indexOf(acc) ? nodes[id].cls : acc;
     }, 'normal');
+    /* Invalid flow order or an inlet outside the trained 5–15 L/min range is a
+       data-quality issue, not evidence of a leak. */
+    if (dataQuality !== 'OK') worst = 'normal';
 
     if (live) {
       if (worst === state.run.cls) state.run.n++;
@@ -414,8 +447,9 @@ const Telemetry = (function () {
     const pending = live && state.run.cls !== state.confirmed && state.run.cls !== 'normal';
 
     /* Loss rate is measured, not read off the simulator's truth. */
-    const lossRaw = Math.max(0, cur.imbalAB + cur.imbalBC);
-    state.lossEma = state.lossEma + (lossRaw - state.lossEma) * (live ? 0.18 : 1);
+    const acceptedUse = SEG.qNominal - SEG.qOutlet;
+    const lossRaw = Math.max(0, cur.imbalAB + cur.imbalBC - acceptedUse);
+    state.lossEma = state.lossEma + (lossRaw - state.lossEma) * (live ? 0.50 : 1);
     const lossRate = cls === 'normal' && !pending ? Math.max(0, state.lossEma) * 0.35 : state.lossEma;
 
     const loc = localise(cur);
@@ -442,6 +476,13 @@ const Telemetry = (function () {
       cost: state.cumLoss * SEG.tariff,
       qIn: qA, qOut: qC,
       imbalAB: cur.imbalAB, imbalBC: cur.imbalBC,
+      /* Match the hardware console: segment percentages use the transmitted
+         two-decimal Q1/Q2/Q3 readings. */
+      lossABPct: (rqA - rqB) / Math.max(rqA, 0.01) * 100,
+      lossBCPct: (rqB - rqC) / Math.max(rqB, 0.01) * 100,
+      dataQuality: dataQuality,
+      reviewReason: reviewReason,
+      qualitySince: state.qualitySince,
       subseg: loc.seg,
       pos: cls === 'normal' && !pending ? null : state.posEma,
       sigma: state.sigEma,
@@ -480,7 +521,7 @@ const Telemetry = (function () {
   /* An alert is open while it still describes a live leak. "Not resolved" is the
      wrong test: it also matches a suppressed transient, and the next real leak
      then rewrote that closed record in place — the log showed a rejected valve
-     slam relabelled as a 266 L/min minor leak, which is a lie about history.
+     slam relabelled as a later leak, which is a lie about history.
      Acknowledging does not close an alert, so 'ack' still counts as open. */
   function isOpen(a) { return a.state === 'active' || a.state === 'ack'; }
 
@@ -574,9 +615,11 @@ const Telemetry = (function () {
       if (ct >= CYCLE) { state.cycleStart = now; state.cycleIndex++; ct = 0; }
       leak = autoLeak(ct, CYCLE_POS[state.cycleIndex % CYCLE_POS.length]);
     } else if (state.scenario === 'minor') {
-      leak = { q: 84, pos: 868, transient: false };
+      leak = { q: 1.00, pos: 402, transient: false };
     } else if (state.scenario === 'major') {
-      leak = { q: 268, pos: 868, transient: false };
+      leak = { q: 2.50, pos: 868, transient: false };
+    } else if (state.scenario === 'review') {
+      leak = { q: 0, pos: 0, transient: false, invalid: true };
     } else {
       leak = { q: 0, pos: 0, transient: false };
     }
